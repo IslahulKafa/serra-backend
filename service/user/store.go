@@ -25,14 +25,6 @@ func (s *Store) CreateUser(u *types.User) error {
 		return errors.New("email already registered")
 	}
 
-	err = s.db.QueryRow(`SELECT COUNT(*) FROM users WHERE uername = ?`, u.Username).Scan(&exists)
-	if err != nil {
-		return err
-	}
-	if exists > 0 {
-		return errors.New("username already taken")
-	}
-
 	res, err := s.db.Exec(`INSERT INTO users (username, email, password) VALUES (?, ?, ?)`, u.Username, u.Email, u.Password)
 	if err != nil {
 		return err
