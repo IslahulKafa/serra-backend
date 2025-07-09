@@ -36,7 +36,7 @@ Serra is a chat application backend built with Go. This service provides RESTful
 
 4. Run the server:
    ```bash
-   go run main.go
+   make run
    ```
 
 ### .env File Format

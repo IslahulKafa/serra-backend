@@ -1,7 +1,7 @@
 package user
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"serra/types"
 	"serra/utils"
@@ -21,6 +21,7 @@ func NewHandler(store types.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
+	router.Handle("/me", utils.JWTAuth(http.HandlerFunc(h.handleProfile))).Methods("GET")
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -81,11 +82,34 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password)); err != nil {
-		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf(err.Error()))
+		utils.WriteError(w, http.StatusUnauthorized, errors.New("invalid credentials"))
+		return
+	}
+
+	token, err := utils.GenerateJWT(user.ID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
 		"message": "Login successful!",
+		"token":   token,
+	})
+}
+
+func (h *Handler) handleProfile(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(utils.UserIDKey).(int64)
+
+	user, err := h.store.GetUserByID(userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusNotFound, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"id":       user.ID,
+		"email":    user.Email,
+		"username": user.Username,
 	})
 }
