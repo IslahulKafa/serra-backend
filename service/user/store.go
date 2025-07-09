@@ -33,3 +33,16 @@ func (s *Store) CreateUser(u *types.User) error {
 	u.ID, _ = res.LastInsertId()
 	return nil
 }
+
+func (s *Store) GetUserByEmail(email string) (*types.User, error) {
+	var u types.User
+	err := s.db.QueryRow(`SELECT id, username, email, password FROM users WHERE email = ?`, email).Scan(&u.ID, &u.Username, &u.Email, &u.Password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &u, nil
+}

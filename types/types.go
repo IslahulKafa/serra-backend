@@ -2,6 +2,7 @@ package types
 
 type UserStore interface {
 	CreateUser(u *User) error
+	GetUserByEmail(email string) (*User, error)
 }
 
 type User struct {
