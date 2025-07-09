@@ -22,8 +22,8 @@ Serra is a chat application backend built with Go. This service provides RESTful
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/serra.git
-   cd serra
+   git clone https://github.com/IslahulKafa/serra-backend.git
+   cd serra-backend
    ```
 
 2. Create a `.env` file in the project root (see format below).
