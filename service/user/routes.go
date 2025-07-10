@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"serra/types"
 	"serra/utils"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
@@ -22,6 +23,8 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
 	router.Handle("/me", utils.JWTAuth(http.HandlerFunc(h.handleProfile))).Methods("GET")
+	router.Handle("/keys/upload", utils.JWTAuth(http.HandlerFunc(h.handleUploadKeys))).Methods("POST")
+	router.Handle("/keys/{user_id}", utils.JWTAuth(http.HandlerFunc(h.handleGetPrekeyBundle))).Methods("GET")
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -112,4 +115,53 @@ func (h *Handler) handleProfile(w http.ResponseWriter, r *http.Request) {
 		"email":    user.Email,
 		"username": user.Username,
 	})
+}
+
+func (h *Handler) handleUploadKeys(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(utils.UserIDKey).(int64)
+
+	var payload struct {
+		IdentityKey           string   `json:"identity_key" validate:"required"`
+		SignedPrekey          string   `json:"signed_prekey" validate:"required"`
+		SignedPrekeySignature string   `json:"signed_prekey_signature" validate:"required"`
+		OneTimePrekeys        []string `json:"one_time_prekeys" validate:"required,dive,required"`
+	}
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err := h.store.UpsertPrekeyBundle(userID, payload.IdentityKey, payload.SignedPrekey, payload.SignedPrekeySignature, payload.OneTimePrekeys)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"message": "Keys uploaded succesfully",
+	})
+}
+
+func (h *Handler) handleGetPrekeyBundle(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userIDStr := vars["user_id"]
+
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	bundle, err := h.store.GetPrekeyBundle(userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusNotFound, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, bundle)
 }

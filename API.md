@@ -59,6 +59,46 @@ All endpoints require authentication via a Bearer token in the `Authorization` h
   }
   ```
 
+### 2. Keys
+
+#### Upload keys
+
+- **POST** `http:localhost:8080/api/v1/keys/upload`
+- **Headers:**
+  - `Authorization: Bearer <token>`
+- **Body:**
+  ```json
+  {
+    "identity_key": "base64-identity-key",
+    "signed_prekey": "base64-signed-prekey",
+    "signed_prekey_signature": "base64-signature",
+    "one_time_prekeys": [
+      "base64-prekey-1",
+      "base64-prekey-2",
+      "base64-prekey-3"
+    ]
+  }
+  ```
+- **Response:** `201 Created`
+
+#### Get keys
+
+- **GET** `http:localhost:8080/api/v1/keys/{user_id}`
+- **Headers:**
+  - `Authorization: Bearer <token>`
+- **Response:** `200 OK`
+  ```json
+  {
+    "data": {
+      "identity_key": "base64-identity-key",
+      "ne_time_prekey": "base64-prekey-1",
+      "signed_prekey": "base64-signed-prekey",
+      "signed_prekey_signature": "base64-signature"
+    },
+    "status": "success"
+  }
+  ```
+
 ## Error Handling
 
 All errors return a JSON object:
