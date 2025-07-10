@@ -45,6 +45,40 @@ All endpoints require authentication via a Bearer token in the `Authorization` h
   }
   ```
 
+#### Request OTP
+
+- **POST** `http:localhost:8080/api/v1/request-otp`
+- **Body:**
+  ```json
+  {
+    "email": "string"
+  }
+  ```
+- **Response:** `200 OK`
+  ```json
+  {
+    "message": "OTP sent"
+  }
+  ```
+
+#### Verify OTP
+
+- **POST** `http:localhost:8080/api/v1/verify-otp`
+- **Body:**
+  ```json
+  {
+    "email": "string",
+    "otp": "string",
+    "otp_token": "jwt_token"
+  }
+  ```
+- **Response:** `200 OK`
+  ```json
+  {
+    "message": "OTP verified"
+  }
+  ```
+
 #### Get user profile
 
 - **GET** `http:localhost:8080/api/v1/me`
