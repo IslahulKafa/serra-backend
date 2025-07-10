@@ -37,7 +37,7 @@ func (s *Store) CreateUser(u *types.User) error {
 
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	var u types.User
-	err := s.db.QueryRow(`SELECT id, username, email, password FROM users WHERE email = ?`, email).Scan(&u.ID, &u.Username, &u.Email, &u.Password)
+	err := s.db.QueryRow(`SELECT id, username, email, password FROM users WHERE email = ?`, email).Scan(&u.ID, &u.Username, &u.ProfilePic, &u.Email, &u.Password)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
@@ -51,7 +51,7 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 func (s *Store) GetUserByID(id int64) (*types.User, error) {
 	var u types.User
 	err := s.db.QueryRow(`SELECT id, username, email, password FROM users WHERE id = ?`, id).
-		Scan(&u.ID, &u.Username, &u.Email, &u.Password)
+		Scan(&u.ID, &u.Username, &u.ProfilePic, &u.Email, &u.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -122,4 +122,19 @@ func (s *Store) GetPrekeyBundle(userID int64) (map[string]any, error) {
 		"signed_prekey_signature": signature,
 		"ne_time_prekey":          oneTimePrekey,
 	}, nil
+}
+
+func (s *Store) SetUserProfile(userID int64, username, profilePic string) error {
+	var exists int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ? AND id != ?`, username, userID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists > 0 {
+		return errors.New("Username already taken")
+	}
+
+	_, err = s.db.Exec(`UPDATE users SET username = ?, profile_pic = ? WHERE id = ?`, username, profilePic, userID)
+
+	return err
 }

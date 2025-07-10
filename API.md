@@ -41,23 +41,8 @@ All endpoints require authentication via a Bearer token in the `Authorization` h
 - **Response:** `200 OK`
   ```json
   {
-    "token": "jwt-token-string"
-  }
-  ```
-
-#### Request OTP
-
-- **POST** `http:localhost:8080/api/v1/request-otp`
-- **Body:**
-  ```json
-  {
-    "email": "string"
-  }
-  ```
-- **Response:** `200 OK`
-  ```json
-  {
-    "message": "OTP sent"
+    "otp": "string",
+    "otp_token": "jwt_token"
   }
   ```
 

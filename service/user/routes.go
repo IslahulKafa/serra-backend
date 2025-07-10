@@ -25,8 +25,8 @@ func NewHandler(store types.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
-	router.HandleFunc("/request-otp", h.handleRequestOTP).Methods("POST")
 	router.HandleFunc("/verify-otp", h.handleVerifyOTP).Methods("POST")
+	router.Handle("/onboarding", utils.JWTAuth(http.HandlerFunc(h.handleOnboarding))).Methods("POST")
 	router.Handle("/me", utils.JWTAuth(http.HandlerFunc(h.handleProfile))).Methods("GET")
 	router.Handle("/keys/upload", utils.JWTAuth(http.HandlerFunc(h.handleUploadKeys))).Methods("POST")
 	router.HandleFunc("/keys/{user_id}", h.handleGetPrekeyBundle).Methods("GET")
@@ -94,43 +94,17 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := utils.GenerateJWT(user.ID)
+	code := fmt.Sprintf("%06d", rand.IntN(1000000))
+	otpToken, err := utils.GenerateOTPToken(payload.Email, code, 5*time.Minute)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"message": "Login successful!",
-		"token":   token,
-	})
-}
-
-func (h *Handler) handleRequestOTP(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email string `json:"email" validate:"required,email"`
-	}
-	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if err := utils.Validate.Struct(payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	otp := fmt.Sprintf("%06d", rand.IntN(1000000))
-	token, err := utils.GenerateOTPToken(payload.Email, otp, 5*time.Minute)
-	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"message":   "OTOP sent!",
-		"otp":       otp,
-		"otp_token": token,
+		"message":   "Login successful!",
+		"otp":       code,
+		"otp_token": otpToken,
 	})
 }
 
@@ -161,8 +135,53 @@ func (h *Handler) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := h.store.GetUserByEmail(payload.Email)
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, errors.New("user not found"))
+		return
+	}
+
+	token, err := utils.GenerateJWT(user.ID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
 		"message": "OTP verified successfully",
+		"token":   token,
+	})
+}
+
+func (h *Handler) handleOnboarding(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(utils.UserIDKey).(int64)
+
+	var payload struct {
+		Username   string `json:"username" validate:"required,min=3"`
+		ProfilePic string `json:"profile_pic"`
+	}
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if payload.ProfilePic == "" {
+		payload.ProfilePic = "https://i.pinimg.com/736x/f9/24/12/f924127a8033eecbb67b0e1509097095.jpg"
+	}
+
+	err := h.store.SetUserProfile(userID, payload.Username, payload.ProfilePic)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"message": "Profile updated!",
 	})
 }
 
