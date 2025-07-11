@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type UserStore interface {
 	CreateUser(u *User) error
 	GetUserByEmail(email string) (*User, error)
@@ -7,6 +9,8 @@ type UserStore interface {
 	UpsertPrekeyBundle(userID int64, identityKey, signedPrekey, signature string, oneTimePrekeys []string) error
 	GetPrekeyBundle(userID int64) (map[string]any, error)
 	SetUserProfile(userID int64, username, profilePic string) error
+	SaveRefreshToken(userID int64, token string, expires time.Time) error
+	GetRefreshToken(token string) (int64, error)
 }
 
 type User struct {

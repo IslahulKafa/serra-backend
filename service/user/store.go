@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"serra/types"
+	"time"
 )
 
 type Store struct {
@@ -137,4 +138,24 @@ func (s *Store) SetUserProfile(userID int64, username, profilePic string) error 
 	_, err = s.db.Exec(`UPDATE users SET username = ?, profile_pic = ? WHERE id = ?`, username, profilePic, userID)
 
 	return err
+}
+
+func (s *Store) SaveRefreshToken(userID int64, token string, expires time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO refresh_tokens (token, user_id, expires_at) VALUES (?, ?, ?)`, token, userID, expires)
+	return err
+}
+
+func (s *Store) GetRefreshToken(token string) (int64, error) {
+	var userID int64
+	var expiresAt time.Time
+	err := s.db.QueryRow(`SELECT user_id, expires_at FROM refresh_tokens WHERE token = ?`, token).Scan(&userID, &expiresAt)
+	if err != nil {
+		return 0, err
+	}
+
+	if time.Now().After(expiresAt) {
+		return 0, errors.New("refresh token expired")
+	}
+
+	return userID, nil
 }

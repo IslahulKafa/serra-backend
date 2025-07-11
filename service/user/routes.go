@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
 	router.HandleFunc("/verify-otp", h.handleVerifyOTP).Methods("POST")
+	router.HandleFunc("/refresh-token", h.handleRefreshToken).Methods("POST")
 	router.Handle("/onboarding", utils.JWTAuth(http.HandlerFunc(h.handleOnboarding))).Methods("POST")
 	router.Handle("/me", utils.JWTAuth(http.HandlerFunc(h.handleProfile))).Methods("GET")
 	router.Handle("/keys/upload", utils.JWTAuth(http.HandlerFunc(h.handleUploadKeys))).Methods("POST")
@@ -147,9 +148,43 @@ func (h *Handler) handleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refreshToken, err := utils.GenerateRefreshToken()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	h.store.SaveRefreshToken(user.ID, refreshToken, time.Now().Add(7*24*time.Hour))
+
 	utils.WriteJSON(w, http.StatusOK, map[string]any{
-		"message": "OTP verified successfully",
-		"token":   token,
+		"message":       "OTP verified successfully",
+		"token":         token,
+		"refresh_token": refreshToken,
+	})
+}
+
+func (h *Handler) handleRefreshToken(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		RefreshToken string `json:"refresh_token" validate:"required"`
+	}
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	userID, err := h.store.GetRefreshToken(payload.RefreshToken)
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	token, err := utils.GenerateJWT(userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"token": token,
 	})
 }
 
